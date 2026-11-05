@@ -1,7 +1,7 @@
 """Collect the comments from an itch.io game page into comments/itch.json (all of them) and comments/new.md (what
 appeared since the last run, newest first). The page is plain HTML: every comment is a div.community_post with
 an author, a date (title attribute) and a body. Older comments are behind «?before=» links — followed up to 10 pages."""
-import html, json, os, re, sys, urllib.request
+import html, json, os, re, sys, urllib.error, urllib.request
 from html.parser import HTMLParser
 
 UA = {'User-Agent': 'fallrym-ops comments (github actions)'}
@@ -31,7 +31,15 @@ class Posts(HTMLParser):
         if self.cur and self.field: self.cur[self.field] += d
 
 def get(url):
-    with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=30) as r: return r.read().decode('utf-8', 'replace')
+    import time
+    for wait in (0, 30, 90, 180):  # itch answers 429 now and then to shared runners: wait and try again
+        time.sleep(wait)
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=30) as r: return r.read().decode('utf-8', 'replace')
+        except urllib.error.HTTPError as e:
+            if e.code != 429: raise
+            print(f'{url}: 429, retrying')
+    raise SystemExit('itch kept answering 429')
 
 def collect(url):
     seen, posts, page = set(), [], url
