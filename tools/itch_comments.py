@@ -37,6 +37,7 @@ def collect(url):
     seen, posts, page = set(), [], url
     for _ in range(10):
         h = get(page); p = Posts(); p.feed(h)
+        print(f'{page}: {len(h)} bytes, community_post×{h.count("community_post")}, comment×{h.lower().count("comment")}, parsed {len(p.posts)}')
         for x in p.posts:
             if x['id'] not in seen: seen.add(x['id']); posts.append(x)
         m = re.search(r'href="([^"]+\?before=\d+[^"]*)"', h)
