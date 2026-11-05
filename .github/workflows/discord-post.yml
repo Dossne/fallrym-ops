@@ -1,0 +1,28 @@
+name: Discord — post an announcement
+on:
+  push:
+    branches: [main]
+    paths: ['announce/**.md']
+  workflow_dispatch:
+    inputs:
+      file:
+        description: 'announce/<file>.md to post again'
+        required: true
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Post new announcements
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          BEFORE: ${{ github.event.before }}
+          FILE: ${{ github.event.inputs.file }}
+        run: |
+          if [ -n "$FILE" ]; then files="$FILE";
+          elif [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then files=$(git ls-files 'announce/*.md');
+          else files=$(git diff --name-only --diff-filter=A "$BEFORE" "$GITHUB_SHA" -- 'announce/*.md'); fi
+          [ -z "$files" ] && { echo "nothing new"; exit 0; }
+          for f in $files; do python3 tools/discord_post.py "$f"; done
