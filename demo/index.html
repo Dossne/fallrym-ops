@@ -543,6 +543,7 @@ html[lang=zh]{--f-txt:"PT Sans","Noto Sans SC","PingFang SC","Microsoft YaHei","
 .tag{font:600 clamp(15px,2.6vw,20px)/1.3 var(--f-sky);letter-spacing:.16em;color:#e9e1cd;text-shadow:0 2px 4px #000}
 .keys{font:15px/1.6 var(--f-txt);color:var(--phos);text-align:left;margin-top:4px}
 .st-ask{font:14px/1.45 var(--f-txt);max-width:560px;text-align:center}.st-ask .mrow{margin-top:8px;justify-content:center;gap:8px}
+.st-modal{position:fixed;inset:0;z-index:70;display:grid;place-items:center;padding:12px;background:rgba(4,3,2,.78)}.st-modal .st-ask{background:#0d1a10;border:2px solid #000;box-shadow:0 0 0 1px var(--plate-hi),0 10px 40px rgba(0,0,0,.8);border-radius:4px;padding:14px 16px;max-width:min(520px,94%)}.st-modal .st-ask .mrow{display:flex}
 .keys b{color:var(--amber);font-weight:700}
 .slide{font:clamp(18px,2.4vw,22px)/1.5 var(--f-txt);color:#e8dfc8;text-align:center;max-width:56ch;margin:0 auto;min-height:5.5em;display:grid;place-items:center;text-wrap:balance}
 
@@ -592,6 +593,8 @@ html[lang=zh]{--f-txt:"PT Sans","Noto Sans SC","PingFang SC","Microsoft YaHei","
    a short landscape screen — the title and settings shrink and scroll, the HUD compacts so the field keeps two thirds ---------- */
 #ovTitle:not([hidden]){display:flex;overflow-y:auto}
 #ovTitle>.title{margin:auto}
+/* the title on a laptop-sized portal window (~1290×690): the key hints go (H shows them in play), the logo gives a little */
+@media (max-height:780px) and (min-aspect-ratio:4/3){ #ovTitle .title>.keys{display:none} .plogo{width:auto;max-width:min(94%,860px);max-height:30vh} .title{gap:8px} }
 @media (max-height:640px) and (min-aspect-ratio:4/3){
   .plogo{width:auto;max-width:min(94%,860px);max-height:25vh}
   .tag{font-size:clamp(12px,2.6vh,18px);letter-spacing:.1em}
@@ -622,6 +625,7 @@ html[lang=zh]{--f-txt:"PT Sans","Noto Sans SC","PingFang SC","Microsoft YaHei","
 }
 @media (max-height:480px) and (min-aspect-ratio:4/3){
   #ovTitle .keys{display:none}
+  #ovTitle{padding:6px 12px} #ovTitle .title{gap:5px}
   .plogo{max-height:21vh}
   .slots,.aux,.auxbox{height:76px}
   .slotrow.r3 .slots,.slotrow.r3 .aux,.slotrow.r3 .auxbox{height:96px}
@@ -780,7 +784,7 @@ input.tcode:focus{outline:none;border-color:#ffd27a;box-shadow:0 0 0 1px #ffd27a
    Hi, colleague. Most of this game was written by one of us, so you will feel at home: one global scope, wrappers on wrappers,
    a test for every quirk. Found a bug? The Discord's #bugs channel takes reports (LINKS.discord). Asked to clone it? You probably
    can — but the jokes are the game, and they are ours. The dragon keeps count. And try raduin() in the console. */
-const BUILD_ID = 'v0.120.0.0 · b43a4fc · 2026-11-06 · demo';
+const BUILD_ID = 'v0.120.0.1 · af77df3 · 2026-11-06 · demo';
 const EDITION = 'demo';
 /* i18n */
 const LANGS = ["ru","en","es","zh"];
@@ -56010,30 +56014,44 @@ setInterval(() => {
     err(r && r.message || r, r && r.stack ? String(r.stack).split('\n')[1] : '');
   });
 }
-{
-  const ts = titleScreen;
-  titleScreen = function () {
-    const r = ts.apply(this, arguments);
-    trackAsk();
-    return r;
-  };
-}
-function trackAsk() {
-  const t = $('#ovTitle .title');
-  if (!t || !trackCan() || OPTS.stats != null || $('#stAsk')) return;
+function trackAsk(go) {
+  const host = $('#ovTitle');
+  if (!host || $('#stAsk')) return;
   const d = document.createElement('div');
   d.id = 'stAsk';
-  d.className = 'screen st-ask';
+  d.className = 'st-modal';
+  d.setAttribute('role', 'dialog');
+  d.setAttribute('aria-modal', 'true');
   const ask = I18L("7ead734c0", "Помочь игре? Отправлять анонимную статистику: где застревают, от кого умирают, что ломается. Без имён, почты и IP. Выключается в НАСТРОЙКАХ.");
-  d.innerHTML = `<div>${ask}</div><div class="mrow"><button class="btn go" data-st="1">${I18L("bd55cf5f3", "ДА, ПОМОГУ")}</button><button class="btn" data-st="0">${I18L("c2fa52e72", "НЕТ")}</button></div>`;
-  const k = t.querySelector('.keys');
-  t.insertBefore(d, k || null);
+  d.innerHTML = `<div class="screen st-ask"><div>${ask}</div><div class="mrow"><button class="btn go" data-st="1">${I18L("bd55cf5f3", "ДА, ПОМОГУ")}</button><button class="btn" data-st="0">${I18L("c2fa52e72", "НЕТ")}</button></div></div>`;
+  host.appendChild(d);
   d.querySelectorAll('[data-st]').forEach(b => b.onclick = () => {
     audioInit();
     sfx('click');
     trackAnswer(b.dataset.st === '1');
     d.remove();
+    if (go) go();
   });
+}
+const trackGate = go => {
+  if (!trackCan() || OPTS.stats != null) return go();
+  trackAsk(go);
+};
+{
+  const ng = newGame;
+  newGame = function () {
+    const a = arguments,
+      t = this;
+    return trackGate(() => ng.apply(t, a));
+  };
+}
+{
+  const ls = loadSlot;
+  loadSlot = function () {
+    const a = arguments,
+      t = this;
+    return trackGate(() => ls.apply(t, a));
+  };
 }
 function reportShot() {
   try {
