@@ -23,3 +23,8 @@ jobs:
         env:
           BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
         run: ./butler/butler push demo dossne/fallrym:html5 --userversion-file demo/VERSION
+      - name: Show the channel state (processing, failed or live)
+        if: always()
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: sleep 60; ./butler/butler status dossne/fallrym:html5
